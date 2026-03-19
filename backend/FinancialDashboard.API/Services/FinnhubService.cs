@@ -77,6 +77,38 @@ public class FinnhubService : IFinnhubService
         }
     }
 
+    public async Task<List<FinnhubNewsItem>> GetMarketNewsAsync(string category = "general")
+    {
+        try
+        {
+            var url = $"news?category={category}&token={_apiKey}";
+            var items = await _http.GetFromJsonAsync<List<FinnhubNewsItem>>(url);
+            return items ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch market news");
+            return [];
+        }
+    }
+
+    public async Task<List<FinnhubNewsItem>> GetCompanyNewsAsync(string symbol)
+    {
+        try
+        {
+            var from = DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd");
+            var to   = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            var url  = $"company-news?symbol={Uri.EscapeDataString(symbol)}&from={from}&to={to}&token={_apiKey}";
+            var items = await _http.GetFromJsonAsync<List<FinnhubNewsItem>>(url);
+            return items?.Take(20).ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch company news for {Symbol}", symbol);
+            return [];
+        }
+    }
+
     public async Task<List<(string Symbol, FinnhubQuote? Quote)>> GetQuotesBatchAsync(IEnumerable<string> symbols)
     {
         // Finnhub free tier: no batch endpoint; fetch sequentially with a small delay to respect rate limits

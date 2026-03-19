@@ -1,6 +1,7 @@
 import type {
   AlertHistory,
   CandlePoint,
+  NewsItem,
   PortfolioItem,
   PortfolioSummary,
   PriceAlert,
@@ -99,6 +100,12 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(s),
     }),
+  },
+
+  // ── News ─────────────────────────────────────────────────────────────────────
+  news: {
+    market:  (category = 'general') => request<NewsItem[]>(`/api/news/market?category=${category}`),
+    stock:   (symbol: string)       => request<NewsItem[]>(`/api/news/stock/${encodeURIComponent(symbol)}`),
   },
 
   // ── Portfolio ────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import Alerts       from './pages/Alerts'
 import AlertHistory from './pages/AlertHistory'
 import Settings     from './pages/Settings'
 import Portfolio    from './pages/Portfolio'
+import News         from './pages/News'
 import Login        from './pages/Login'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -37,6 +38,7 @@ function AppShell() {
           <Route path="/history"   element={<AlertHistory />} />
           <Route path="/settings"  element={<Settings />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/news"      element={<News />} />
         </Routes>
       </main>
     </div>

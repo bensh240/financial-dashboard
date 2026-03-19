@@ -75,6 +75,18 @@ export interface PortfolioItem {
   plPercent: number;
 }
 
+export interface NewsItem {
+  id: number;
+  headline: string | null;
+  summary: string | null;
+  source: string | null;
+  url: string | null;
+  image: string | null;
+  datetime: number;
+  related: string | null;
+  category: string | null;
+}
+
 export interface PortfolioSummary {
   totalInvested: number;
   totalCurrentValue: number;

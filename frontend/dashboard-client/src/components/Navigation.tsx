@@ -7,12 +7,14 @@ import {
   Settings,
   TrendingUp,
   LogOut,
+  Newspaper,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const links = [
   { to: '/',          label: 'Dashboard',     Icon: LayoutDashboard },
   { to: '/portfolio', label: 'Portfolio',     Icon: Briefcase },
+  { to: '/news',      label: 'News',          Icon: Newspaper },
   { to: '/alerts',    label: 'Alerts',        Icon: Bell },
   { to: '/history',   label: 'Alert History', Icon: History },
   { to: '/settings',  label: 'Settings',      Icon: Settings },

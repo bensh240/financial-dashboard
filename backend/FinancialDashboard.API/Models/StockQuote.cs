@@ -58,6 +58,20 @@ public class FinnhubCandle
     [JsonPropertyName("s")] public string? Status { get; set; }
 }
 
+/// <summary>Maps to Finnhub /news and /company-news response item</summary>
+public class FinnhubNewsItem
+{
+    [JsonPropertyName("id")]       public long    Id       { get; set; }
+    [JsonPropertyName("headline")] public string? Headline { get; set; }
+    [JsonPropertyName("summary")]  public string? Summary  { get; set; }
+    [JsonPropertyName("source")]   public string? Source   { get; set; }
+    [JsonPropertyName("url")]      public string? Url      { get; set; }
+    [JsonPropertyName("image")]    public string? Image    { get; set; }
+    [JsonPropertyName("datetime")] public long    Datetime { get; set; }
+    [JsonPropertyName("related")]  public string? Related  { get; set; }
+    [JsonPropertyName("category")] public string? Category { get; set; }
+}
+
 /// <summary>Yahoo Finance /v8/finance/chart response models</summary>
 public class YahooChartResponse
 {
