@@ -36,8 +36,6 @@ export interface Settings {
   dailyBriefEnabled: boolean;
   weeklyReportEnabled: boolean;
   volatilityThreshold: number;
-  sendGridApiKey: string;
-  claudeApiKey: string;
   adminUsername: string;
 }
 

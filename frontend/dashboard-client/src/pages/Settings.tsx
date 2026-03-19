@@ -104,33 +104,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Email Configuration (SendGrid) */}
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div className="card-title">Email Configuration</div>
-
-          <div className="form-group">
-            <label className="form-label">SendGrid API Key</label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="SG.xxxxxxxxx"
-              value={settings.sendGridApiKey}
-              onChange={e => setSettings({ ...settings, sendGridApiKey: e.target.value })}
-              autoComplete="off"
-            />
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              Required for sending email alerts and reports.{' '}
-              <a
-                href="https://app.sendgrid.com/settings/api_keys"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Get a free API key at SendGrid
-              </a>
-            </span>
-          </div>
-        </div>
-
         {/* Daily Brief */}
         <div className="card" style={{ marginBottom: 20 }}>
           <div className="card-title">Daily Brief</div>
@@ -196,33 +169,6 @@ export default function SettingsPage() {
             />
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
               Trigger a VOLATILITY alert when a stock swings this % within a single 5-minute polling cycle.
-            </span>
-          </div>
-        </div>
-
-        {/* AI Configuration */}
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-title">AI Configuration</div>
-
-          <div className="form-group">
-            <label className="form-label">Claude API Key</label>
-            <input
-              type="password"
-              className="form-input"
-              placeholder="sk-ant-xxxxxxxxx"
-              value={settings.claudeApiKey}
-              onChange={e => setSettings({ ...settings, claudeApiKey: e.target.value })}
-              autoComplete="off"
-            />
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              Used for AI-generated market summaries in the daily brief.{' '}
-              <a
-                href="https://console.anthropic.com/settings/keys"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Get a Claude API key at Anthropic Console
-              </a>
             </span>
           </div>
         </div>

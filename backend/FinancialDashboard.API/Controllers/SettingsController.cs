@@ -27,8 +27,6 @@ public class SettingsController : ControllerBase
             s.DailyBriefEnabled,
             s.WeeklyReportEnabled,
             s.VolatilityThreshold,
-            s.SendGridApiKey,
-            s.ClaudeApiKey,
             s.AdminUsername));
     }
 
@@ -45,8 +43,6 @@ public class SettingsController : ControllerBase
         s.DailyBriefEnabled    = req.DailyBriefEnabled;
         s.WeeklyReportEnabled  = req.WeeklyReportEnabled;
         s.VolatilityThreshold  = req.VolatilityThreshold;
-        s.SendGridApiKey       = req.SendGridApiKey;
-        s.ClaudeApiKey         = req.ClaudeApiKey;
         if (!string.IsNullOrWhiteSpace(req.AdminUsername))
             s.AdminUsername = req.AdminUsername;
         if (!string.IsNullOrWhiteSpace(req.AdminPassword))
@@ -67,8 +63,6 @@ public class SettingsController : ControllerBase
             s.DailyBriefEnabled,
             s.WeeklyReportEnabled,
             s.VolatilityThreshold,
-            s.SendGridApiKey,
-            s.ClaudeApiKey,
             s.AdminUsername));
     }
 }

@@ -6,8 +6,6 @@ public record SettingsDto(
     bool    DailyBriefEnabled,
     bool    WeeklyReportEnabled,
     decimal VolatilityThreshold,
-    string  SendGridApiKey,
-    string  ClaudeApiKey,
     string  AdminUsername
 );
 
@@ -17,8 +15,6 @@ public record UpdateSettingsRequest(
     bool    DailyBriefEnabled,
     bool    WeeklyReportEnabled,
     decimal VolatilityThreshold,
-    string  SendGridApiKey,
-    string  ClaudeApiKey,
     string  AdminUsername,
     string  AdminPassword   // empty = keep current password
 );
