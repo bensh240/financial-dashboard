@@ -1,151 +1,155 @@
 # Financial Monitoring Dashboard
 
-A full-stack real-time financial monitoring application with automated alerts, scheduled email reports, and volatility detection.
+A full-stack personal financial monitoring dashboard with real-time prices, automated email reports, AI-powered summaries, portfolio tracking, and market news.
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  React + Vite + TypeScript (port 5173)                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│  │Dashboard │ │ Alerts   │ │ History  │ │Settings  │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘  │
-└───────────────────────┬─────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  React + Vite + TypeScript (port 5173)                          │
+│  ┌──────────┐ ┌───────────┐ ┌──────┐ ┌─────────┐ ┌─────────┐  │
+│  │Dashboard │ │ Portfolio │ │ News │ │ Alerts  │ │Settings │  │
+│  └──────────┘ └───────────┘ └──────┘ └─────────┘ └─────────┘  │
+└───────────────────────┬─────────────────────────────────────────┘
                         │ HTTP / REST (proxied by Vite)
-┌───────────────────────▼─────────────────────────────────┐
-│  .NET 8 Web API (port 5000)                             │
-│                                                         │
-│  Controllers          Services                          │
-│  ├─ WatchlistCtrl     ├─ FinnhubService (HttpClient)   │
-│  ├─ AlertsCtrl        ├─ SendGridEmailService           │
-│  ├─ StocksCtrl        ├─ PriceMonitorService (hosted)  │
-│  └─ SettingsCtrl      ├─ VolatilityDetectorService      │
-│                       ├─ DailyBriefService (Hangfire)  │
-│  Hangfire Dashboard   └─ WeeklyReportService (Hangfire)│
-│  /hangfire                                              │
-│                                                         │
-│  EF Core + SQLite          Finnhub REST API            │
-│  financial_dashboard.db    finnhub.io/api/v1           │
-└─────────────────────────────────────────────────────────┘
+┌───────────────────────▼─────────────────────────────────────────┐
+│  .NET 10 Web API (port 5100)                                    │
+│                                                                 │
+│  Controllers              Services                              │
+│  ├─ AuthCtrl              ├─ FinnhubService (quotes, news)      │
+│  ├─ WatchlistCtrl         ├─ SendGridEmailService               │
+│  ├─ AlertsCtrl            ├─ PriceMonitorService (hosted)       │
+│  ├─ StocksCtrl            ├─ VolatilityDetectorService          │
+│  ├─ PortfolioCtrl         ├─ DailyBriefService (Hangfire + AI)  │
+│  ├─ NewsCtrl              └─ WeeklyReportService (Hangfire)     │
+│  └─ SettingsCtrl                                                │
+│                                                                 │
+│  Hangfire Dashboard /hangfire     EF Core + SQLite              │
+│  Finnhub API  ·  Yahoo Finance    Claude API (Anthropic)        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### Tech Decisions
+### Tech Stack
 
-| Concern | Choice | Why |
-|---|---|---|
-| Backend framework | .NET 8 Web API | Minimal API + controllers, excellent background service support |
-| Database | SQLite + EF Core | Zero-ops, file-based, EF migrations for schema management |
-| Job scheduling | Hangfire + Hangfire.Storage.SQLite | Persistent jobs survive restarts; built-in dashboard at `/hangfire` |
-| Market data | Finnhub REST API | Generous free tier (60 req/min), real-time quotes + candles |
-| Email delivery | SendGrid | Reliable transactional email, free tier covers typical alert volume |
-| Frontend | React 18 + Vite + TypeScript | Fast HMR, strict typing, minimal config |
-| Charts | Recharts | Composable, works natively with React, no canvas quirks |
-| Navigation | React Router v6 | Industry standard, nested routing ready |
-| Styling | Vanilla CSS custom properties | Zero build overhead, dark theme via CSS vars |
+| Concern | Choice |
+|---|---|
+| Backend | .NET 10 Web API |
+| Auth | JWT Bearer tokens |
+| Database | SQLite + EF Core 9 |
+| Job scheduling | Hangfire + Hangfire.Storage.SQLite |
+| Market data | Finnhub REST API (quotes, search, news) |
+| Historical charts | Yahoo Finance (free, no key required) |
+| Email delivery | SendGrid |
+| AI summaries | Claude API (Anthropic) |
+| Frontend | React 18 + Vite + TypeScript |
+| Charts | Recharts (line) + custom SVG (candlestick) |
+| Styling | Vanilla CSS custom properties (dark theme) |
 
 ---
 
-## Project Structure
+## Features
 
-```
-/
-├── backend/
-│   └── FinancialDashboard.API/
-│       ├── Controllers/          # REST endpoints
-│       ├── Data/                 # EF Core DbContext
-│       ├── DTOs/                 # Request/response shapes
-│       ├── Migrations/           # EF Core SQL migrations
-│       ├── Models/               # Domain entities
-│       ├── Services/             # Business logic + background workers
-│       ├── appsettings.json
-│       ├── .env.example
-│       └── Program.cs            # DI wiring + middleware pipeline
-│
-└── frontend/
-    └── dashboard-client/
-        ├── src/
-        │   ├── components/       # Reusable UI (table, chart, modal)
-        │   ├── pages/            # Route-level views
-        │   ├── services/api.ts   # Typed fetch wrapper
-        │   └── types/index.ts    # Shared TypeScript types
-        ├── .env.example
-        └── vite.config.ts        # Dev proxy → backend
-```
+### Dashboard
+- Watchlist with live prices, % change, previous close
+- Add stocks by symbol or company name (autocomplete search)
+- International stocks supported (e.g. `ASML.AS`, `7203.T`)
+- Click any stock to open an interactive price chart
+- Browser push notifications for price alerts
 
----
+### Price Charts
+- **Line mode** — Recharts area chart with gradient fill
+- **Candlestick mode** — custom SVG with OHLCV, wicks, hover tooltip
+- Time ranges: 1W / 1M / 3M / 1Y (via Yahoo Finance, free)
 
-## Background Automation Services
+### Portfolio
+- Track positions: symbol, quantity, average cost
+- Real-time P&L in $ and % per position
+- Summary cards: Total Invested, Current Value, Total P&L
+- Add, edit, and delete positions
 
-### 1. PriceMonitorService (`IHostedService`)
+### News
+- **Market News** — general, forex, crypto, M&A categories
+- **Stock News** — last 7 days of news per watchlist symbol
+- Article cards with image, headline, summary, source, and link
 
-- **Frequency:** Every 5 minutes (configurable constant)
-- **Mechanism:** Registered as `BackgroundService`; survives app restarts without Hangfire
-- **What it does:**
-  1. Loads all watchlist symbols from SQLite
-  2. Fetches quotes from Finnhub (200 ms delay between calls to respect free-tier rate limits)
-  3. Updates cached price columns on `WatchlistItems`
-  4. Evaluates every active `PriceAlert` — triggers if `|percentChange| >= threshold`
-  5. Delegates each price delta to `VolatilityDetectorService`
-  6. Persists new `AlertHistory` rows and emails a digest if any fired
+### Alerts
+- Price threshold alerts per symbol (% change)
+- Toggle alerts on/off
+- Full alert history log (SPIKE / DROP / VOLATILITY / THRESHOLD)
 
-### 2. VolatilityDetectorService (singleton + Hangfire)
+### Automated Emails
+- **Daily Brief** — morning summary with top movers, watchlist table, recent alerts, and optional Claude AI narrative
+- **Weekly Report** — Sunday performance summary (alert counts, max swings)
+- **Volatility Alerts** — immediate email when a stock swings beyond threshold in one polling cycle
 
-- **Mechanism:** Singleton service injected into `PriceMonitorService`; its `Detect()` method is called inside every poll cycle
-- **What it does:** Compares each stock's current price to its last cached price. If the intra-cycle swing exceeds `UserSettings.VolatilityThreshold` (default 3%), a `VOLATILITY` alert is logged
-- **Cooldown:** 30-minute per-symbol cooldown (in-memory dictionary) prevents alert spam
-- **Hangfire summary job:** Every 15 minutes, logs which symbols were recently flagged
-
-### 3. DailyBriefService (Hangfire recurring job)
-
-- **Cron:** `0 {hour} * * *` — defaults to 8 AM UTC, reconfigured live via the Settings page
-- **What it does:**
-  1. Fetches fresh quotes for the whole watchlist
-  2. Builds a structured HTML email: top gainers, top losers, full watchlist table, last 24 h alerts
-  3. Sends via `IEmailService` (SendGrid)
-- **AI Enhancement point:** The `GenerateRuleSummary()` method produces a rule-based narrative. Replace it with a Claude API call (`POST /v1/messages`) to get GPT-style prose from the stock data
-
-### 4. WeeklyReportService (Hangfire recurring job)
-
-- **Cron:** `0 9 * * 0` — every Sunday at 9 AM UTC
-- **What it does:** Aggregates the past 7 days of `AlertHistory`, computes per-symbol stats (alert count, max swing), and emails a performance summary
+### Settings
+- Recipient email address
+- Daily brief time (UTC) — reschedules Hangfire job on save
+- Volatility threshold (%)
+- Enable/disable daily brief and weekly report
+- Change login username and password
 
 ---
 
 ## API Endpoints
 
+All endpoints require JWT auth except `POST /api/auth/login`.
+
+### Auth
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/auth/login` | Login, returns JWT |
+| POST | `/api/auth/logout` | Logout (client discards token) |
+| GET | `/api/auth/me` | Current user info |
+
 ### Watchlist
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/watchlist` | List all items with live Finnhub prices |
-| POST | `/api/watchlist` | Add stock (`{ symbol }`) — validates via Finnhub |
+| GET | `/api/watchlist` | List all items with live prices |
+| POST | `/api/watchlist` | Add stock `{ symbol }` |
 | DELETE | `/api/watchlist/{symbol}` | Remove stock |
 
 ### Alerts
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/alerts` | List all configured alerts |
-| POST | `/api/alerts` | Create alert (`{ symbol, thresholdPercent }`) |
-| PUT | `/api/alerts/{id}` | Toggle active / update threshold |
-| DELETE | `/api/alerts/{id}` | Delete alert |
+| GET | `/api/alerts` | List alerts |
+| POST | `/api/alerts` | Create `{ symbol, thresholdPercent }` |
+| PUT | `/api/alerts/{id}` | Update threshold / toggle active |
+| DELETE | `/api/alerts/{id}` | Delete |
 | GET | `/api/alerts/history` | History log (`?symbol=&limit=`) |
 
 ### Stocks
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/stocks/{symbol}/quote` | Live Finnhub quote |
-| GET | `/api/stocks/{symbol}/profile` | Company profile |
-| GET | `/api/stocks/{symbol}/candles` | OHLCV history (`?resolution=D&days=30`) |
+| GET | `/api/stocks/search` | Symbol search `?q=` |
+| GET | `/api/stocks/{symbol}/quote` | Live quote |
+| GET | `/api/stocks/{symbol}/candles` | OHLCV history `?resolution=D&days=30` |
+
+### News
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/news/market` | Market news `?category=general` |
+| GET | `/api/news/stock/{symbol}` | Company news (last 7 days) |
+
+### Portfolio
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/portfolio` | List positions with live P&L |
+| GET | `/api/portfolio/summary` | Aggregate totals |
+| POST | `/api/portfolio` | Add position |
+| PUT | `/api/portfolio/{id}` | Update position |
+| DELETE | `/api/portfolio/{id}` | Delete position |
 
 ### Settings
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/settings` | Get current settings |
-| PUT | `/api/settings` | Save + reschedule Hangfire jobs |
+| GET | `/api/settings` | Get settings |
+| PUT | `/api/settings` | Save + reschedule jobs |
 
-**Swagger UI:** `http://localhost:5000/swagger`
-**Hangfire Dashboard:** `http://localhost:5000/hangfire`
+**Swagger UI:** `http://localhost:5100/swagger`
+**Hangfire Dashboard:** `http://localhost:5100/hangfire`
 
 ---
 
@@ -153,54 +157,47 @@ A full-stack real-time financial monitoring application with automated alerts, s
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Node.js 20+](https://nodejs.org)
-- A [Finnhub](https://finnhub.io) API key (free)
-- A [SendGrid](https://sendgrid.com) API key (free tier, optional – required for emails)
+- [Finnhub](https://finnhub.io) API key (free)
+- [SendGrid](https://sendgrid.com) API key + verified sender email (free tier)
+- [Claude API](https://console.anthropic.com) key (optional, for AI summaries)
 
 ### Backend
 
 ```bash
 cd backend/FinancialDashboard.API
 
-# Copy and fill in secrets
-cp .env.example .env
-# Edit .env: set Finnhub__ApiKey and SendGrid__ApiKey
+# Edit .env with your keys
+nano .env
 
-# Restore packages
+# Restore & run (DB is created automatically on first start)
 dotnet restore
-
-# Run (auto-migrates DB on startup)
 dotnet run
 ```
 
-The API starts on `http://localhost:5000`.
+The API starts on `http://localhost:5100`.
+
+**Default login:** `admin` / `admin123` — change in Settings after first login.
 
 ### Frontend
 
 ```bash
 cd frontend/dashboard-client
-
-# Copy env
-cp .env.example .env
-
-# Install dependencies
 npm install
-
-# Start dev server
 npm run dev
 ```
 
-The app opens at `http://localhost:5173`. Vite proxies `/api/*` to the backend automatically.
+Opens at `http://localhost:5173`. Vite proxies `/api/*` to the backend.
 
 ### Production Build
 
 ```bash
 # Frontend
-npm run build   # outputs to dist/
+cd frontend/dashboard-client && npm run build   # → dist/
 
 # Backend
-dotnet publish -c Release -o ./publish
+cd backend/FinancialDashboard.API && dotnet publish -c Release -o ./publish
 ```
 
 ---
@@ -213,17 +210,11 @@ dotnet publish -c Release -o ./publish
 |---|---|---|
 | `Finnhub__ApiKey` | Yes | Finnhub API key |
 | `SendGrid__ApiKey` | For email | SendGrid API key |
-| `SendGrid__FromEmail` | For email | Verified sender email |
-| `SendGrid__FromName` | No | Display name |
+| `SendGrid__FromEmail` | For email | Verified sender address |
+| `SendGrid__FromName` | No | Display name in emails |
+| `Anthropic__ApiKey` | No | Claude API key for AI summaries |
 | `AllowedOrigins` | No | CORS origin (default: `http://localhost:5173`) |
 | `Database__Path` | No | SQLite file path (default: `financial_dashboard.db`) |
-
-### Frontend (`frontend/dashboard-client/.env`)
-
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_API_BASE_URL` | No | Backend URL when not using Vite proxy |
-| `VITE_POLL_INTERVAL_MS` | No | Watchlist auto-refresh interval (default: 60000) |
 
 ---
 
@@ -238,28 +229,26 @@ CompanyName         ThresholdPercent    PriceAtTrigger      DailyBriefTime
 AddedAt             IsActive            PercentChange       DailyBriefEnabled
 LastKnownPrice      CreatedAt           AlertType           WeeklyReportEnabled
 PreviousClose       LastTriggeredAt     Notes               VolatilityThreshold
-LastPercentChange                       TriggeredAt
-LastPriceUpdatedAt                      AlertId
+LastPercentChange                       TriggeredAt         AdminUsername
+LastPriceUpdatedAt                      AlertId             AdminPassword
+
+PortfolioItems
+──────────────
+Id
+Symbol
+Quantity
+AvgCostPrice
+AddedAt
+Notes
 ```
 
 ---
 
-## Extending the Project
+## Background Services
 
-### Add Claude AI summaries
-
-In `DailyBriefService.cs`, replace `GenerateRuleSummary()` with:
-
-```csharp
-// POST https://api.anthropic.com/v1/messages
-var prompt = $"Write a concise 2-sentence market brief for a retail investor based on this data: {JsonSerializer.Serialize(quotes)}";
-// Use HttpClient with header: x-api-key: {AnthropicApiKey}
-```
-
-### Add more alert types
-
-Extend `AlertType` values and add detection logic in `PriceMonitorService.PollAsync()`.
-
-### Add user authentication
-
-Add ASP.NET Core Identity or JWT middleware to `Program.cs` and protect controllers with `[Authorize]`.
+| Service | Schedule | Description |
+|---|---|---|
+| `PriceMonitorService` | Every 5 min | Polls Finnhub, updates prices, fires threshold/volatility alerts |
+| `VolatilityDetectorService` | Per poll cycle + every 15 min | Detects intra-cycle price swings, 30-min cooldown per symbol |
+| `DailyBriefService` | Configurable (default 8 AM UTC) | Sends morning email with movers, watchlist, alerts, AI summary |
+| `WeeklyReportService` | Sundays 9 AM UTC | Sends weekly performance summary email |
