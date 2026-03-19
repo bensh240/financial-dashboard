@@ -28,7 +28,8 @@ public class SettingsController : ControllerBase
             s.WeeklyReportEnabled,
             s.VolatilityThreshold,
             s.SendGridApiKey,
-            s.ClaudeApiKey));
+            s.ClaudeApiKey,
+            s.AdminUsername));
     }
 
     /// <summary>Update user settings and reschedule Hangfire jobs.</summary>
@@ -46,6 +47,10 @@ public class SettingsController : ControllerBase
         s.VolatilityThreshold  = req.VolatilityThreshold;
         s.SendGridApiKey       = req.SendGridApiKey;
         s.ClaudeApiKey         = req.ClaudeApiKey;
+        if (!string.IsNullOrWhiteSpace(req.AdminUsername))
+            s.AdminUsername = req.AdminUsername;
+        if (!string.IsNullOrWhiteSpace(req.AdminPassword))
+            s.AdminPassword = req.AdminPassword;
 
         await _db.SaveChangesAsync();
 
@@ -63,6 +68,7 @@ public class SettingsController : ControllerBase
             s.WeeklyReportEnabled,
             s.VolatilityThreshold,
             s.SendGridApiKey,
-            s.ClaudeApiKey));
+            s.ClaudeApiKey,
+            s.AdminUsername));
     }
 }

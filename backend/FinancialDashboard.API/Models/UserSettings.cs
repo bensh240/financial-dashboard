@@ -16,4 +16,6 @@ public class UserSettings
 
     public string SendGridApiKey { get; set; } = string.Empty;
     public string ClaudeApiKey { get; set; } = string.Empty;
+    public string AdminUsername { get; set; } = string.Empty;
+    public string AdminPassword { get; set; } = string.Empty;
 }

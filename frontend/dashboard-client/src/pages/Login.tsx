@@ -56,7 +56,7 @@ export default function Login() {
         </div>
 
         <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>
-          Sign In
+          Log In
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 28, textAlign: 'center' }}>
           Enter your credentials to access the dashboard
@@ -99,10 +99,16 @@ export default function Login() {
             style={{ width: '100%', justifyContent: 'center', padding: '10px 16px' }}
           >
             {loading
-              ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Signing in…</>
-              : 'Sign In'}
+              ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Logging in…</>
+              : 'Log In'}
           </button>
         </form>
+
+        <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12, marginTop: 20 }}>
+          Default credentials: <code style={{ color: 'var(--accent)' }}>admin</code> / <code style={{ color: 'var(--accent)' }}>admin123</code>
+          <br />
+          <span style={{ fontSize: 11 }}>Change them in Settings after logging in.</span>
+        </p>
       </div>
     </div>
   )

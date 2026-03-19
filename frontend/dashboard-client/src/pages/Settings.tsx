@@ -4,11 +4,12 @@ import { api } from '../services/api'
 import type { Settings } from '../types'
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [loading,  setLoading]  = useState(true)
-  const [saving,   setSaving]   = useState(false)
-  const [saved,    setSaved]    = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [settings,      setSettings]      = useState<Settings | null>(null)
+  const [adminPassword, setAdminPassword] = useState('')
+  const [loading,       setLoading]       = useState(true)
+  const [saving,        setSaving]        = useState(false)
+  const [saved,         setSaved]         = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
 
   useEffect(() => {
     api.settings.get()
@@ -24,8 +25,12 @@ export default function SettingsPage() {
     setError(null)
     setSaved(false)
     try {
-      const updated = await api.settings.update(settings)
+      const payload = adminPassword
+        ? { ...settings, adminPassword }
+        : { ...settings }
+      const updated = await api.settings.update(payload)
       setSettings(updated)
+      setAdminPassword('')
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err: unknown) {
@@ -47,6 +52,38 @@ export default function SettingsPage() {
       {error && <div className="error-banner">{error}</div>}
 
       <form onSubmit={handleSave} style={{ maxWidth: 540 }}>
+
+        {/* Login Credentials */}
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-title">Login Credentials</div>
+
+          <div className="form-group">
+            <label className="form-label">Username</label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="admin"
+              value={settings.adminUsername}
+              onChange={e => setSettings({ ...settings, adminUsername: e.target.value })}
+              autoComplete="username"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">New Password</label>
+            <input
+              type="password"
+              className="form-input"
+              placeholder="Leave blank to keep current password"
+              value={adminPassword}
+              onChange={e => setAdminPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              Leave blank to keep the current password.
+            </span>
+          </div>
+        </div>
 
         {/* Email Notifications */}
         <div className="card" style={{ marginBottom: 20 }}>

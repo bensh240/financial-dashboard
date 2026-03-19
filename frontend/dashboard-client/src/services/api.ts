@@ -5,6 +5,7 @@ import type {
   PortfolioSummary,
   PriceAlert,
   Settings,
+  UpdateSettingsRequest,
   WatchlistItem,
 } from '../types';
 
@@ -93,8 +94,8 @@ export const api = {
 
   // ── Settings ─────────────────────────────────────────────────────────────────
   settings: {
-    get:    ()               => request<Settings>('/api/settings'),
-    update: (s: Settings)   => request<Settings>('/api/settings', {
+    get:    ()                             => request<Settings>('/api/settings'),
+    update: (s: UpdateSettingsRequest)    => request<Settings>('/api/settings', {
       method: 'PUT',
       body: JSON.stringify(s),
     }),

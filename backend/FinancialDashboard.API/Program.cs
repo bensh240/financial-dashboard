@@ -146,6 +146,8 @@ using (var scope = app.Services.CreateScope())
     // Add new columns to existing tables via ALTER TABLE (SQLite compatible, try/catch for idempotency)
     try { db.Database.ExecuteSqlRaw("ALTER TABLE UserSettings ADD COLUMN SendGridApiKey TEXT NOT NULL DEFAULT ''"); } catch { }
     try { db.Database.ExecuteSqlRaw("ALTER TABLE UserSettings ADD COLUMN ClaudeApiKey TEXT NOT NULL DEFAULT ''"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE UserSettings ADD COLUMN AdminUsername TEXT NOT NULL DEFAULT ''"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE UserSettings ADD COLUMN AdminPassword TEXT NOT NULL DEFAULT ''"); } catch { }
     try { db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS PortfolioItems (Id INTEGER PRIMARY KEY AUTOINCREMENT, Symbol TEXT NOT NULL, Quantity TEXT NOT NULL, AvgCostPrice TEXT NOT NULL, AddedAt TEXT NOT NULL, Notes TEXT)"); } catch { }
 }
 

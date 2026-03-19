@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using FinancialDashboard.API.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace FinancialDashboard.API.Controllers;
@@ -13,11 +15,13 @@ public class AuthController : ControllerBase
 {
     private readonly IConfiguration _config;
     private readonly ILogger<AuthController> _logger;
+    private readonly AppDbContext _db;
 
-    public AuthController(IConfiguration config, ILogger<AuthController> logger)
+    public AuthController(IConfiguration config, ILogger<AuthController> logger, AppDbContext db)
     {
         _config = config;
         _logger = logger;
+        _db = db;
     }
 
     public record LoginRequest(string Username, string Password);
@@ -25,10 +29,20 @@ public class AuthController : ControllerBase
     /// <summary>Login with username/password, returns a JWT token.</summary>
     [HttpPost("login")]
     [AllowAnonymous]
-    public IActionResult Login([FromBody] LoginRequest req)
+    public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
         var adminUser = _config["Admin:Username"] ?? "admin";
         var adminPass = _config["Admin:Password"] ?? "admin123";
+
+        // DB-stored credentials override appsettings defaults
+        var dbSettings = await _db.UserSettings.FirstOrDefaultAsync();
+        if (dbSettings != null)
+        {
+            if (!string.IsNullOrWhiteSpace(dbSettings.AdminUsername))
+                adminUser = dbSettings.AdminUsername;
+            if (!string.IsNullOrWhiteSpace(dbSettings.AdminPassword))
+                adminPass = dbSettings.AdminPassword;
+        }
 
         if (!string.Equals(req.Username, adminUser, StringComparison.OrdinalIgnoreCase) ||
             req.Password != adminPass)

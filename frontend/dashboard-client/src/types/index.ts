@@ -38,6 +38,11 @@ export interface Settings {
   volatilityThreshold: number;
   sendGridApiKey: string;
   claudeApiKey: string;
+  adminUsername: string;
+}
+
+export interface UpdateSettingsRequest extends Settings {
+  adminPassword?: string;
 }
 
 export interface CandlePoint {
