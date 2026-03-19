@@ -16,5 +16,5 @@ public record UpdateSettingsRequest(
     bool    WeeklyReportEnabled,
     decimal VolatilityThreshold,
     string  AdminUsername,
-    string  AdminPassword   // empty = keep current password
+    string? AdminPassword   // null/empty = keep current password
 );
