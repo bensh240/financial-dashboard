@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using FinancialDashboard.API.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -5,20 +7,25 @@ namespace FinancialDashboard.API.Services;
 
 /// <summary>
 /// Hangfire recurring job – runs at 8 AM (configurable via Settings).
-/// Fetches fresh prices, generates an AI-style summary, and emails it.
-///
-/// AI Enhancement: replace GenerateSummary() with a call to the Claude API
-/// (https://api.anthropic.com/v1/messages) using the stock data as context.
+/// Fetches fresh prices, generates an AI summary via Claude, and emails it.
 /// </summary>
 public class DailyBriefService
 {
     private readonly IServiceProvider _services;
     private readonly ILogger<DailyBriefService> _logger;
+    private readonly IHttpClientFactory _httpFactory;
+    private readonly IConfiguration _config;
 
-    public DailyBriefService(IServiceProvider services, ILogger<DailyBriefService> logger)
+    public DailyBriefService(
+        IServiceProvider services,
+        ILogger<DailyBriefService> logger,
+        IHttpClientFactory httpFactory,
+        IConfiguration config)
     {
-        _services = services;
-        _logger   = logger;
+        _services    = services;
+        _logger      = logger;
+        _httpFactory = httpFactory;
+        _config      = config;
     }
 
     public async Task SendDailyBriefAsync()
@@ -46,14 +53,86 @@ public class DailyBriefService
             .Take(10)
             .ToListAsync();
 
-        var html = BuildHtml(quotes, recentAl, DateTime.UtcNow);
+        // Get Claude API key from UserSettings first, fall back to appsettings
+        var claudeKey = !string.IsNullOrWhiteSpace(settings.ClaudeApiKey)
+            ? settings.ClaudeApiKey
+            : (_config["Anthropic:ApiKey"] ?? "");
+
+        var aiSummary = await GenerateClaudeSummary(quotes, claudeKey);
+        var html = BuildHtml(quotes, recentAl, DateTime.UtcNow, aiSummary);
         await emailService.SendAsync(settings.Email, $"📊 Daily Brief – {DateTime.UtcNow:MMM d, yyyy}", html);
+    }
+
+    private async Task<string> GenerateClaudeSummary(
+        List<(string Symbol, Models.FinnhubQuote? Quote)> quotes,
+        string claudeApiKey)
+    {
+        if (string.IsNullOrWhiteSpace(claudeApiKey))
+            return GenerateRuleSummary(quotes);
+
+        try
+        {
+            var stockData = quotes
+                .Where(q => q.Quote != null)
+                .Select(q => new
+                {
+                    symbol        = q.Symbol,
+                    price         = q.Quote!.CurrentPrice,
+                    percentChange = q.Quote.PercentChange
+                });
+
+            var stockJson = JsonSerializer.Serialize(stockData);
+
+            var client = _httpFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("x-api-key", claudeApiKey);
+            client.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+
+            var requestBody = new
+            {
+                model      = "claude-sonnet-4-6",
+                max_tokens = 300,
+                messages   = new[]
+                {
+                    new
+                    {
+                        role    = "user",
+                        content = $"Write a concise 2-sentence market brief for a financial dashboard based on these stocks: {stockJson}. Focus on overall market sentiment and the biggest mover."
+                    }
+                }
+            };
+
+            var json     = JsonSerializer.Serialize(requestBody);
+            var content  = new StringContent(json, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync("https://api.anthropic.com/v1/messages", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Claude API returned {Status}, falling back to rule-based summary", response.StatusCode);
+                return GenerateRuleSummary(quotes);
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync();
+            using var doc    = JsonDocument.Parse(responseJson);
+
+            var text = doc.RootElement
+                .GetProperty("content")[0]
+                .GetProperty("text")
+                .GetString();
+
+            return text ?? GenerateRuleSummary(quotes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Claude API call failed, falling back to rule-based summary");
+            return GenerateRuleSummary(quotes);
+        }
     }
 
     private static string BuildHtml(
         List<(string Symbol, Models.FinnhubQuote? Quote)> quotes,
         List<Models.AlertHistory> alerts,
-        DateTime now)
+        DateTime now,
+        string aiSummary)
     {
         var gainers = quotes
             .Where(q => q.Quote != null && q.Quote.PercentChange > 0)
@@ -74,7 +153,7 @@ public class DailyBriefService
               $"{q.Quote.PercentChange:+0.00;-0.00}%</td>" +
               $"<td>${q.Quote.PreviousClose:F2}</td></tr>";
 
-        var allRows  = string.Join("", quotes.Select(QuoteRow));
+        var allRows    = string.Join("", quotes.Select(QuoteRow));
         var gainerRows = string.Join("", gainers.Select(QuoteRow));
         var loserRows  = string.Join("", losers.Select(QuoteRow));
 
@@ -84,12 +163,6 @@ public class DailyBriefService
                 $"<tr><td>{a.Symbol}</td><td>{a.AlertType}</td>" +
                 $"<td style='color:{(a.PercentChange >= 0 ? "green" : "red")}'>{a.PercentChange:+0.00;-0.00}%</td>" +
                 $"<td>{a.TriggeredAt:HH:mm UTC}</td></tr>"));
-
-        // --- AI Enhancement placeholder ---
-        // To integrate Claude AI for a narrative summary, call:
-        // POST https://api.anthropic.com/v1/messages with the stock data JSON
-        // and prompt: "Write a concise market brief for these stocks: {data}"
-        var aiSummary = GenerateRuleSummary(quotes);
 
         return $"""
             <div style="font-family:Arial,sans-serif;max-width:700px">

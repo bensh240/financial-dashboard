@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Plus, RefreshCw } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Bell, BellOff, Plus, RefreshCw } from 'lucide-react'
 import { api } from '../services/api'
-import type { WatchlistItem } from '../types'
+import type { AlertHistory, WatchlistItem } from '../types'
 import WatchlistTable from '../components/WatchlistTable'
 import StockChart     from '../components/StockChart'
 import AddStockModal  from '../components/AddStockModal'
@@ -15,6 +15,44 @@ export default function Dashboard() {
   const [loading,    setLoading]    = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
+
+  // Push notifications
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+  )
+  const lastAlertCountRef = useRef<number | null>(null)
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if (typeof Notification === 'undefined') return
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(p => setNotifPermission(p))
+    }
+  }, [])
+
+  // Poll alert history and fire push notifications for new alerts
+  const checkAlerts = useCallback(async () => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+
+    try {
+      const history: AlertHistory[] = await api.alerts.history(undefined, 5)
+      const count = history.length
+
+      if (lastAlertCountRef.current !== null && count > lastAlertCountRef.current) {
+        const newAlerts = history.slice(0, count - lastAlertCountRef.current)
+        for (const alert of newAlerts) {
+          new Notification('Price Alert', {
+            body: `${alert.symbol}: ${alert.alertType} ${alert.percentChange.toFixed(2)}%`,
+            icon: '/favicon.svg'
+          })
+        }
+      }
+
+      lastAlertCountRef.current = count
+    } catch {
+      // silent – notifications are best-effort
+    }
+  }, [])
 
   const fetchWatchlist = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true)
@@ -34,9 +72,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchWatchlist()
-    const id = setInterval(() => fetchWatchlist(true), POLL_MS)
+    checkAlerts()
+
+    const id = setInterval(async () => {
+      await fetchWatchlist(true)
+      await checkAlerts()
+    }, POLL_MS)
+
     return () => clearInterval(id)
-  }, [fetchWatchlist])
+  }, [fetchWatchlist, checkAlerts])
 
   async function handleAdd(symbol: string) {
     await api.watchlist.add(symbol)
@@ -50,6 +94,13 @@ export default function Dashboard() {
     if (selected === symbol) setSelected(items.find(i => i.symbol !== symbol)?.symbol ?? null)
   }
 
+  function toggleNotifications() {
+    if (typeof Notification === 'undefined') return
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(p => setNotifPermission(p))
+    }
+  }
+
   // Summary stats
   const valid    = items.filter(i => i.percentChange != null)
   const gainers  = valid.filter(i => (i.percentChange ?? 0) > 0).length
@@ -59,7 +110,22 @@ export default function Dashboard() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Watchlist</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 className="page-title">Watchlist</h1>
+          {/* Notification badge */}
+          {typeof Notification !== 'undefined' && (
+            <span
+              className={`badge ${notifPermission === 'granted' ? 'badge-green' : 'badge-gray'}`}
+              onClick={toggleNotifications}
+              style={{ cursor: notifPermission === 'default' ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              title={notifPermission === 'default' ? 'Click to enable notifications' : `Notifications: ${notifPermission}`}
+            >
+              {notifPermission === 'granted'
+                ? <><Bell size={11} /> Notifications: On</>
+                : <><BellOff size={11} /> Notifications: Off</>}
+            </span>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-ghost" onClick={() => fetchWatchlist(true)} disabled={refreshing}>
             <RefreshCw size={14} className={refreshing ? 'spin' : ''} />

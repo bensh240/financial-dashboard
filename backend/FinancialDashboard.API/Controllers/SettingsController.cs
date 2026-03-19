@@ -1,6 +1,7 @@
 using FinancialDashboard.API.Data;
 using FinancialDashboard.API.DTOs;
 using Hangfire;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,6 +9,7 @@ namespace FinancialDashboard.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -19,7 +21,14 @@ public class SettingsController : ControllerBase
     public async Task<ActionResult<SettingsDto>> Get()
     {
         var s = await _db.UserSettings.FirstAsync();
-        return Ok(new SettingsDto(s.Email, s.DailyBriefTime, s.DailyBriefEnabled, s.WeeklyReportEnabled, s.VolatilityThreshold));
+        return Ok(new SettingsDto(
+            s.Email,
+            s.DailyBriefTime,
+            s.DailyBriefEnabled,
+            s.WeeklyReportEnabled,
+            s.VolatilityThreshold,
+            s.SendGridApiKey,
+            s.ClaudeApiKey));
     }
 
     /// <summary>Update user settings and reschedule Hangfire jobs.</summary>
@@ -35,6 +44,8 @@ public class SettingsController : ControllerBase
         s.DailyBriefEnabled    = req.DailyBriefEnabled;
         s.WeeklyReportEnabled  = req.WeeklyReportEnabled;
         s.VolatilityThreshold  = req.VolatilityThreshold;
+        s.SendGridApiKey       = req.SendGridApiKey;
+        s.ClaudeApiKey         = req.ClaudeApiKey;
 
         await _db.SaveChangesAsync();
 
@@ -45,6 +56,13 @@ public class SettingsController : ControllerBase
             svc => svc.SendDailyBriefAsync(),
             cron);
 
-        return Ok(new SettingsDto(s.Email, s.DailyBriefTime, s.DailyBriefEnabled, s.WeeklyReportEnabled, s.VolatilityThreshold));
+        return Ok(new SettingsDto(
+            s.Email,
+            s.DailyBriefTime,
+            s.DailyBriefEnabled,
+            s.WeeklyReportEnabled,
+            s.VolatilityThreshold,
+            s.SendGridApiKey,
+            s.ClaudeApiKey));
     }
 }

@@ -13,4 +13,7 @@ public class UserSettings
 
     /// <summary>% swing in a single polling cycle that triggers a volatility alert</summary>
     public decimal VolatilityThreshold { get; set; } = 3.0m;
+
+    public string SendGridApiKey { get; set; } = string.Empty;
+    public string ClaudeApiKey { get; set; } = string.Empty;
 }

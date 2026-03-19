@@ -2,6 +2,7 @@ using FinancialDashboard.API.Data;
 using FinancialDashboard.API.DTOs;
 using FinancialDashboard.API.Models;
 using FinancialDashboard.API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ namespace FinancialDashboard.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class WatchlistController : ControllerBase
 {
     private readonly AppDbContext _db;

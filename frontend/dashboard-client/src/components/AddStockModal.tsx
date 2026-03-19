@@ -105,7 +105,7 @@ export default function AddStockModal({ onAdd, onClose }: Props) {
               <input
                 className="form-input"
                 style={{ paddingLeft: 32 }}
-                placeholder="e.g. AAPL, Tesla, MSFT…"
+                placeholder="e.g. AAPL, ASML.AS, 7203.T"
                 value={query}
                 onChange={e => handleQueryChange(e.target.value)}
                 onFocus={() => results.length > 0 && setOpen(true)}

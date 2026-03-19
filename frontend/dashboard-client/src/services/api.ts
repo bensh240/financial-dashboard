@@ -1,6 +1,8 @@
 import type {
   AlertHistory,
   CandlePoint,
+  PortfolioItem,
+  PortfolioSummary,
   PriceAlert,
   Settings,
   WatchlistItem,
@@ -8,12 +10,25 @@ import type {
 
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
+function getToken(): string | null {
+  return localStorage.getItem('fd_token');
+}
+
 async function request<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
+  const token = getToken();
+  const authHeader: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeader,
+      ...options?.headers,
+    },
     ...options,
   });
 
@@ -26,8 +41,19 @@ async function request<T>(
   return res.json() as Promise<T>;
 }
 
-// ── Watchlist ─────────────────────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────────────
 export const api = {
+  auth: {
+    login: (username: string, password: string) =>
+      request<{ token: string; username: string }>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      }),
+    logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+    me: () => request<{ username: string }>('/api/auth/me'),
+  },
+
+  // ── Watchlist ──────────────────────────────────────────────────────────────
   watchlist: {
     list: ()               => request<WatchlistItem[]>('/api/watchlist'),
     add:  (symbol: string) => request<WatchlistItem>('/api/watchlist', {
@@ -72,5 +98,22 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(s),
     }),
+  },
+
+  // ── Portfolio ────────────────────────────────────────────────────────────────
+  portfolio: {
+    list: () => request<PortfolioItem[]>('/api/portfolio'),
+    summary: () => request<PortfolioSummary>('/api/portfolio/summary'),
+    create: (symbol: string, quantity: number, avgCostPrice: number, notes?: string) =>
+      request<PortfolioItem>('/api/portfolio', {
+        method: 'POST',
+        body: JSON.stringify({ symbol, quantity, avgCostPrice, notes }),
+      }),
+    update: (id: number, quantity: number, avgCostPrice: number, notes?: string) =>
+      request<PortfolioItem>(`/api/portfolio/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ quantity, avgCostPrice, notes }),
+      }),
+    delete: (id: number) => request<void>(`/api/portfolio/${id}`, { method: 'DELETE' }),
   },
 };

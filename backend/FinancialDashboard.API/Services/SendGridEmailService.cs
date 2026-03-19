@@ -1,3 +1,5 @@
+using FinancialDashboard.API.Data;
+using Microsoft.EntityFrameworkCore;
 using SendGrid;
 using SendGrid.Helpers.Mail;
 
@@ -5,20 +7,19 @@ namespace FinancialDashboard.API.Services;
 
 public class SendGridEmailService : IEmailService
 {
-    private readonly SendGridClient _client;
+    private readonly IServiceProvider _services;
+    private readonly IConfiguration _config;
     private readonly string _fromEmail;
     private readonly string _fromName;
     private readonly ILogger<SendGridEmailService> _logger;
 
-    public SendGridEmailService(IConfiguration cfg, ILogger<SendGridEmailService> logger)
+    public SendGridEmailService(IServiceProvider services, IConfiguration config, ILogger<SendGridEmailService> logger)
     {
+        _services  = services;
+        _config    = config;
         _logger    = logger;
-        var apiKey = cfg["SendGrid:ApiKey"] ?? "";
-        _fromEmail = cfg["SendGrid:FromEmail"] ?? "noreply@financialdashboard.local";
-        _fromName  = cfg["SendGrid:FromName"]  ?? "Financial Dashboard";
-        if (string.IsNullOrWhiteSpace(apiKey))
-            _logger.LogWarning("SendGrid:ApiKey is not configured – emails will be skipped.");
-        _client = new SendGridClient(string.IsNullOrWhiteSpace(apiKey) ? "placeholder" : apiKey);
+        _fromEmail = config["SendGrid:FromEmail"] ?? "noreply@financialdashboard.local";
+        _fromName  = config["SendGrid:FromName"]  ?? "Financial Dashboard";
     }
 
     public async Task SendAsync(string to, string subject, string htmlBody)
@@ -29,6 +30,32 @@ public class SendGridEmailService : IEmailService
             return;
         }
 
+        // Prefer UserSettings key, fall back to appsettings
+        string apiKey = "";
+        try
+        {
+            using var scope = _services.CreateScope();
+            var db          = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var settings    = await db.UserSettings.FirstOrDefaultAsync();
+            if (settings != null && !string.IsNullOrWhiteSpace(settings.SendGridApiKey))
+                apiKey = settings.SendGridApiKey;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not read SendGrid key from UserSettings, falling back to appsettings");
+        }
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+            apiKey = _config["SendGrid:ApiKey"] ?? "";
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("SendGrid:ApiKey is not configured – emails will be skipped.");
+            return;
+        }
+
+        var client = new SendGridClient(apiKey);
+
         var msg = MailHelper.CreateSingleEmail(
             from:    new EmailAddress(_fromEmail, _fromName),
             to:      new EmailAddress(to),
@@ -37,7 +64,7 @@ public class SendGridEmailService : IEmailService
             htmlContent: htmlBody
         );
 
-        var response = await _client.SendEmailAsync(msg);
+        var response = await client.SendEmailAsync(msg);
 
         if ((int)response.StatusCode >= 400)
         {

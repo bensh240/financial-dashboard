@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<PriceAlert>    PriceAlerts    { get; set; }
     public DbSet<AlertHistory>  AlertHistories  { get; set; }
     public DbSet<UserSettings>  UserSettings    { get; set; }
+    public DbSet<PortfolioItem> PortfolioItems  { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,7 +23,9 @@ public class AppDbContext : DbContext
             DailyBriefTime       = "08:00",
             DailyBriefEnabled    = true,
             WeeklyReportEnabled  = true,
-            VolatilityThreshold  = 3.0m
+            VolatilityThreshold  = 3.0m,
+            SendGridApiKey       = "",
+            ClaudeApiKey         = ""
         });
     }
 }

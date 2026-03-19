@@ -5,7 +5,9 @@ public record SettingsDto(
     string  DailyBriefTime,
     bool    DailyBriefEnabled,
     bool    WeeklyReportEnabled,
-    decimal VolatilityThreshold
+    decimal VolatilityThreshold,
+    string  SendGridApiKey,
+    string  ClaudeApiKey
 );
 
 public record UpdateSettingsRequest(
@@ -13,5 +15,7 @@ public record UpdateSettingsRequest(
     string  DailyBriefTime,
     bool    DailyBriefEnabled,
     bool    WeeklyReportEnabled,
-    decimal VolatilityThreshold
+    decimal VolatilityThreshold,
+    string  SendGridApiKey,
+    string  ClaudeApiKey
 );

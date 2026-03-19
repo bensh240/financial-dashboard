@@ -1,11 +1,13 @@
 using FinancialDashboard.API.Models;
 using FinancialDashboard.API.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FinancialDashboard.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class StocksController : ControllerBase
 {
     private readonly IFinnhubService _finnhub;
@@ -37,7 +39,7 @@ public class StocksController : ControllerBase
         return Ok(profile);
     }
 
-    /// <summary>Search for stock symbols by name or ticker.</summary>
+    /// <summary>Search for stock symbols by name or ticker (all types including international).</summary>
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] string q)
     {
@@ -48,7 +50,6 @@ public class StocksController : ControllerBase
         if (result?.Result == null) return Ok(new List<object>());
 
         var filtered = result.Result
-            .Where(r => r.Type is "Common Stock" or "ETP" or "ETF" or "")
             .Take(8)
             .Select(r => new { symbol = r.Symbol, description = r.Description })
             .ToList();
@@ -57,7 +58,7 @@ public class StocksController : ControllerBase
     }
 
     /// <summary>
-    /// Historical price chart via Yahoo Finance (free, no key required).
+    /// Historical OHLCV chart via Yahoo Finance (free, no key required).
     /// days: 7 | 30 | 90 | 365
     /// </summary>
     [HttpGet("{symbol}/candles")]
@@ -83,17 +84,35 @@ public class StocksController : ControllerBase
             if (result?.Timestamps == null || result.Indicators?.Quote == null)
                 return NotFound(new { error = $"No chart data for '{symbol}'." });
 
-            var closes = result.Indicators.Quote[0].Close;
+            var quoteData = result.Indicators.Quote[0];
+            var opens     = quoteData.Open;
+            var highs     = quoteData.High;
+            var lows      = quoteData.Low;
+            var closes    = quoteData.Close;
+            var volumes   = quoteData.Volume;
+
             if (closes == null)
                 return NotFound(new { error = $"No close prices for '{symbol}'." });
 
             var points = result.Timestamps
-                .Zip(closes, (t, c) => (t, c))
-                .Where(x => x.c.HasValue)
+                .Select((t, i) => new
+                {
+                    t,
+                    o = opens  != null && i < opens.Count  ? opens[i]  : null,
+                    h = highs  != null && i < highs.Count  ? highs[i]  : null,
+                    l = lows   != null && i < lows.Count   ? lows[i]   : null,
+                    c = i < closes.Count                   ? closes[i] : null,
+                    v = volumes != null && i < volumes.Count ? volumes[i] : null
+                })
+                .Where(x => x.c.HasValue && x.o.HasValue && x.h.HasValue && x.l.HasValue)
                 .Select(x => new
                 {
                     timestamp = DateTimeOffset.FromUnixTimeSeconds(x.t).DateTime,
-                    close     = x.c!.Value
+                    open      = x.o!.Value,
+                    high      = x.h!.Value,
+                    low       = x.l!.Value,
+                    close     = x.c!.Value,
+                    volume    = x.v ?? 0L
                 })
                 .ToList();
 

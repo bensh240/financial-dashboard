@@ -1,8 +1,12 @@
+using System.Text;
 using FinancialDashboard.API.Data;
 using FinancialDashboard.API.Services;
 using Hangfire;
 using Hangfire.Storage.SQLite;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +35,28 @@ builder.Services.AddCors(opts =>
         .AllowAnyMethod()
         .AllowAnyHeader()));
 
+// ── JWT Authentication ────────────────────────────────────────────────────────
+var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "FinancialDashboard_SuperSecret_Key_2024_AtLeast32Chars!";
+var keyBytes  = Encoding.UTF8.GetBytes(jwtSecret);
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer           = true,
+            ValidateAudience         = true,
+            ValidateLifetime         = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer              = "FinancialDashboard",
+            ValidAudience            = "FinancialDashboard",
+            IssuerSigningKey         = new SymmetricSecurityKey(keyBytes),
+            ClockSkew                = TimeSpan.Zero
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 // ── Database ─────────────────────────────────────────────────────────────────
 var dbPath = builder.Configuration["Database:Path"] ?? "financial_dashboard.db";
 builder.Services.AddDbContext<AppDbContext>(opts =>
@@ -55,6 +81,8 @@ builder.Services.AddHttpClient("Yahoo", c =>
     c.Timeout = TimeSpan.FromSeconds(10);
 });
 
+builder.Services.AddHttpClient(); // generic IHttpClientFactory for Claude etc.
+
 // ── Application Services ──────────────────────────────────────────────────────
 builder.Services.AddSingleton<VolatilityDetectorService>();
 builder.Services.AddScoped<DailyBriefService>();
@@ -73,6 +101,33 @@ builder.Services.AddSwaggerGen(c =>
         Version     = "v1",
         Description = "Real-time stock monitoring with automated alerts and email reports."
     });
+
+    // JWT Bearer auth in Swagger UI
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name         = "Authorization",
+        Type         = SecuritySchemeType.Http,
+        Scheme       = "Bearer",
+        BearerFormat = "JWT",
+        In           = ParameterLocation.Header,
+        Description  = "Enter your JWT token (without the 'Bearer ' prefix)."
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id   = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     if (File.Exists(xmlPath)) c.IncludeXmlComments(xmlPath);
@@ -86,8 +141,12 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     // EnsureCreated creates all tables from the model (no migration discovery needed).
-    // Seed data defined via HasData() is applied automatically.
     db.Database.EnsureCreated();
+
+    // Add new columns to existing tables via ALTER TABLE (SQLite compatible, try/catch for idempotency)
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE UserSettings ADD COLUMN SendGridApiKey TEXT NOT NULL DEFAULT ''"); } catch { }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE UserSettings ADD COLUMN ClaudeApiKey TEXT NOT NULL DEFAULT ''"); } catch { }
+    try { db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS PortfolioItems (Id INTEGER PRIMARY KEY AUTOINCREMENT, Symbol TEXT NOT NULL, Quantity TEXT NOT NULL, AvgCostPrice TEXT NOT NULL, AddedAt TEXT NOT NULL, Notes TEXT)"); } catch { }
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -99,6 +158,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 app.UseHangfireDashboard("/hangfire");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // ── Hangfire Recurring Jobs ───────────────────────────────────────────────────
 // Read saved daily brief time (default 08:00 UTC)
